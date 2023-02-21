@@ -18,6 +18,10 @@ using namespace glm;
 C3dglModel camera;
 C3dglModel table;
 C3dglModel vase;
+C3dglModel teapot;
+
+// GLSL Program
+C3dglProgram program;
 
 // The View Matrix
 mat4 matrixView;
@@ -36,22 +40,36 @@ bool init()
 	glShadeModel(GL_SMOOTH);	// smooth shading mode is the default one; try GL_FLAT here!
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);	// this is the default one; try GL_LINE!
 
-	// setup lighting
-	glEnable(GL_LIGHTING);									// --- DEPRECATED
-	glEnable(GL_LIGHT0);									// --- DEPRECATED
+	// Initialise Shaders
+	C3dglShader vertexShader;
+	C3dglShader fragmentShader;
+
+	if (!vertexShader.create(GL_VERTEX_SHADER)) return false;
+	if (!vertexShader.loadFromFile("shaders/basic.vert")) return false;
+	if (!vertexShader.compile()) return false;
+
+	if (!fragmentShader.create(GL_FRAGMENT_SHADER)) return false;
+	if (!fragmentShader.loadFromFile("shaders/basic.frag")) return false;
+	if (!fragmentShader.compile()) return false;
+
+	if (!program.create()) return false;
+	if (!program.attach(vertexShader)) return false;
+	if (!program.attach(fragmentShader)) return false;
+	if (!program.link()) return false;
+	if (!program.use(true)) return false;
+	// glut additional setup
+	glutSetVertexAttribCoord3(program.getAttribLocation("aVertex"));
+	glutSetVertexAttribNormal(program.getAttribLocation("aNormal"));
 
 	// load your 3D models here!
 	if (!camera.load("models\\camera.3ds")) return false;
 	if (!table.load("models\\table.obj")) return false;
 	if (!vase.load("models\\vase.obj")) return false;
+	if (!teapot.load("models\\teapot.obj")) return false;
 	
 
 	// Initialise the View Matrix (initial position of the camera)
 	matrixView = rotate(mat4(1), radians(12.f), vec3(1, 0, 0));
-	/*matrixView *= lookAt(
-		vec3(0.0, 5.0, 15.0),
-		vec3(15.0, 5.0, 0.0),
-		vec3(0.0, 1.0, 0.0));*/
 	matrixView *= lookAt(
 		vec3(0.0, 18.0, 35.0),
 		vec3(15.0, 18.0, 0.0),
@@ -75,24 +93,18 @@ void renderScene(mat4& matrixView, float time, float deltaTime)
 {
 	mat4 m;
 
-	// setup materials - grey
-	GLfloat rgbaGrey[] = { 0.6f, 0.6f, 0.6f, 1.0f };		// --- DEPRECATED
-	glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, rgbaGrey);	// --- DEPRECATED
-	glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, rgbaGrey);	// --- DEPRECATED
-
-	// camera
-	/*m = matrixView;
-	m = translate(m, vec3(-3.0f, 0, 0.0f));
-	m = rotate(m, radians(180.f), vec3(0.0f, 1.0f, 0.0f));
-	m = scale(m, vec3(0.04f, 0.04f, 0.04f));
-	camera.render(m);*/
-
+	// setup materials - brown
+	program.sendUniform("material", vec3(0.360f, 0.196f, 0.058f));
 	// table
 	m = matrixView;
 	m = translate(m, vec3(15.0f, 0, 0.0f));
 	m = rotate(m, radians(180.f), vec3(0.0f, 1.0f, 0.0f));
 	m = scale(m, vec3(0.020f, 0.020f, 0.020f));
+
 	table.render(1, m);
+
+	// setup materials - grey
+	program.sendUniform("material", vec3(0.6f, 0.6f, 0.6f));
 	
 	m = rotate(m, radians(90.f), vec3(0.0f, 1.0f, 0.0f));
 	table.render(0, m);
@@ -106,6 +118,9 @@ void renderScene(mat4& matrixView, float time, float deltaTime)
 	m = rotate(m, radians(-180.f), vec3(0.0f, 1.0f, 0.0f));
 	table.render(0, m);
 
+	// setup materials - blue
+	program.sendUniform("material", vec3(0.2f, 0.2f, 0.8f));
+
 	// vase
 	m = matrixView;
 	m = translate(m, vec3(15.0f, 15.2f, .0f));
@@ -113,21 +128,16 @@ void renderScene(mat4& matrixView, float time, float deltaTime)
 	m = scale(m, vec3(0.4f, 0.4f, 0.4f));
 	vase.render( m);
 	
-	// setup materials - blue
-	GLfloat rgbaBlue[] = { 0.2f, 0.2f, 0.8f, 1.0f };		// --- DEPRECATED
-	glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, rgbaBlue);	// --- DEPRECATED
-	glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, rgbaBlue);	// --- DEPRECATED
+	// setup materials - green
+	program.sendUniform("material", vec3(0.164f, 0.898f, 0.121f));
 
-	// teapot
+	//// teapot
 	m = matrixView;
-	m = translate(m, vec3(8.0f, 17.5f, .0f));
-	m = rotate(m, radians(180.f), vec3(0.0f, 1.0f, 0.0f));
-	m = scale(m, vec3(1.5f, 1.5f, 1.5f));
-	// the GLUT objects require the Model View Matrix setup
-	glMatrixMode(GL_MODELVIEW);								// --- DEPRECATED
-	glLoadIdentity();										// --- DEPRECATED
-	glMultMatrixf((GLfloat*)&m);							// --- DEPRECATED
-	glutSolidTeapot(2.0);
+	m = translate(m, vec3(21.0f, 15.f, 2.0f));
+	m = rotate(m, radians(-90.f), vec3(0.0f, 1.0f, 0.0f));
+	m = scale(m, vec3(2.f, 2.f, 2.f));
+	teapot.render(m);
+
 }
 
 void onRender()
@@ -168,9 +178,7 @@ void onReshape(int w, int h)
 	mat4 matrixProjection = perspective(radians(_fov), ratio, 0.02f, 1000.f);
 
 	// Setup the Projection Matrix
-	glMatrixMode(GL_PROJECTION);							// --- DEPRECATED
-	glLoadIdentity();										// --- DEPRECATED
-	glMultMatrixf((GLfloat*)&matrixProjection);				// --- DEPRECATED
+	program.sendUniform("matrixProjection", matrixProjection);
 }
 
 // Handle WASDQE keys
