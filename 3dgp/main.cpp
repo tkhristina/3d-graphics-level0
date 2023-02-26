@@ -19,6 +19,7 @@ C3dglModel camera;
 C3dglModel table;
 C3dglModel vase;
 C3dglModel teapot;
+C3dglModel cat;
 
 // GLSL Program
 C3dglProgram program;
@@ -31,6 +32,24 @@ float maxspeed = 4.f;	// camera max speed
 float accel = 4.f;		// camera acceleration
 vec3 _acc(0), _vel(0);	// camera acceleration and velocity vectors
 float _fov = 60.f;		// field of view (zoom)
+
+// vertex array 
+float vertices[] = {
+	-4, 0, -4, 4, 0, -4, 0, 7, 0, -4, 0, 4, 4, 0, 4, 0, 7, 0,
+	-4, 0, -4, -4, 0, 4, 0, 7, 0, 4, 0, -4, 4, 0, 4, 0, 7, 0,
+	-4, 0, -4, -4, 0, 4, 4, 0, -4, 4, 0, 4 
+};
+float normals[] = {
+	0, 4, -7, 0, 4, -7, 0, 4, -7, 0, 4, 7, 0, 4, 7, 0, 4, 7,
+	-7, 4, 0, -7, 4, 0, -7, 4, 0, 7, 4, 0, 7, 4, 0, 7, 4, 0,
+	0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0
+};
+unsigned indices[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 13, 14, 15 };
+
+// buffers names
+unsigned vertexBuffer = 0;
+unsigned normalBuffer = 0;
+unsigned indexBuffer = 0;
 
 bool init()
 {
@@ -57,15 +76,26 @@ bool init()
 	if (!program.attach(fragmentShader)) return false;
 	if (!program.link()) return false;
 	if (!program.use(true)) return false;
-	// glut additional setup
-	glutSetVertexAttribCoord3(program.getAttribLocation("aVertex"));
-	glutSetVertexAttribNormal(program.getAttribLocation("aNormal"));
+	
+	// prepare vertex data
+	glGenBuffers(1, &vertexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	// prepare normal data
+	glGenBuffers(1, &normalBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, normalBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(normals), normals, GL_STATIC_DRAW);
+	// prepare indices array
+	glGenBuffers(1, &indexBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
 	// load your 3D models here!
 	if (!camera.load("models\\camera.3ds")) return false;
 	if (!table.load("models\\table.obj")) return false;
 	if (!vase.load("models\\vase.obj")) return false;
 	if (!teapot.load("models\\teapot.obj")) return false;
+	if (!cat.load("models\\cat.obj")) return false;
 	
 
 	// Initialise the View Matrix (initial position of the camera)
@@ -137,6 +167,50 @@ void renderScene(mat4& matrixView, float time, float deltaTime)
 	m = rotate(m, radians(-90.f), vec3(0.0f, 1.0f, 0.0f));
 	m = scale(m, vec3(2.f, 2.f, 2.f));
 	teapot.render(m);
+
+	// setup materials - red
+	program.sendUniform("material", vec3(0.89f, 0.05f, 0.07f));
+
+	// Get Attribute Locations
+	GLuint attribVertex = program.getAttribLocation("aVertex");
+	GLuint attribNormal = program.getAttribLocation("aNormal");
+	// Enable vertex attribute arrays
+	glEnableVertexAttribArray(attribVertex);
+	glEnableVertexAttribArray(attribNormal);
+	// Bind (activate) the vertex buffer and set the pointer to it
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+	glVertexAttribPointer(attribVertex, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	// Bind (activate) the normal buffer and set the pointer to it
+	glBindBuffer(GL_ARRAY_BUFFER, normalBuffer);
+	glVertexAttribPointer(attribNormal, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	// Draw triangles – using index buffer
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+
+	// Transforming the Pyramid
+	m = translate(m, vec3(-3.f, 2.55f, 7.f));
+	m = scale(m, vec3(0.35f, 0.35f, 0.35f));
+	m = rotate(m, radians(180.f), vec3(0.f, 0.f, 1.f));
+	// Y axis pyramid rotation
+	m = rotate(m, radians(time * 150), vec3(0.f, 1.f, 0.f));
+	program.sendUniform("matrixModelView", m);
+	glDrawElements(GL_TRIANGLES, 18, GL_UNSIGNED_INT, 0);
+	m = matrixView;
+
+	// setup materials - orange
+	program.sendUniform("material", vec3(0.941f, 0.454f, 0.078f));
+
+	// Transforming the cat
+	m = translate(m, vec3(7.f, 20.f, -4.f));
+	m = scale(m, vec3(0.07f, 0.07f, 0.07f));
+	m = rotate(m, radians(45.0f), vec3(0.f, 1.f, 0.f));
+	// Y axis cat rotation 
+	m = rotate(m, -radians(time * 15), vec3(0.f, 1.f, 0.f));
+	cat.render(m);
+	m = matrixView;
+
+	// Disable arrays
+	glDisableVertexAttribArray(attribVertex);
+	glDisableVertexAttribArray(attribNormal);
 
 }
 
